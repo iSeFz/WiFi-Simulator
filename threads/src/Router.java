@@ -3,7 +3,7 @@ import java.util.List;
 import java.util.Random;
 
 public class Router {
-    private int maxConnections;
+    public int maxConnections;
     private int nDevices;
     private List<Device> Connections;
     public Semaphore Sem;
@@ -19,21 +19,20 @@ public class Router {
         connectionID=1;
     }
 
-    public void Connect(Device value) {
-        Sem.wait(value);
+    public synchronized void Connect(Device value) {
         connectionID++;
         Connections.add(value);
-        System.out.println("Connection "+((connectionID%maxConnections)+1)+": "+value.getname()+" Occupied");
+        System.out.println("Connection "+((Thread.currentThread().threadId()%maxConnections)+1)+": "+value.getname()+" Occupied");
     }
     public void PerformOnlineActivity(Device deviceName) throws InterruptedException {
-        System.out.println("Connection "+((connectionID%maxConnections)+1)+": "+deviceName.getname()+ " login");
-        System.out.println("Connection "+((connectionID%maxConnections)+1)+": "+deviceName.getname() + " is performing online activity.");
-        Thread.sleep(500);
+        System.out.println("Connection "+((Thread.currentThread().threadId()%maxConnections)+1)+": "+deviceName.getname()+ " login");
+        System.out.println("Connection "+((Thread.currentThread().threadId()%maxConnections)+1)+": "+deviceName.getname() + " is performing online activity.");
+        Thread.sleep(1000);
     }
-    public void disconnect(Device deviceName) {
+    public synchronized void disconnect(Device deviceName) {
         connectionID--;
         Connections.remove(deviceName);
-        System.out.println("Connection "+((connectionID%maxConnections)+1)+": "+deviceName.getname() + " Logged out.");
-        Sem.signal();
+        notify();
+        System.out.println("Connection "+((Thread.currentThread().threadId()%maxConnections)+1)+": "+deviceName.getname() + " Logged out.");
     }
 }

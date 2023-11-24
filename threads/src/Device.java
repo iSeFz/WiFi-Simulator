@@ -23,11 +23,14 @@ public class Device extends Thread {
     @Override
     public void run() {
             try {
+                router.Sem.wait(this);
                 router.Connect(this);
                 router.PerformOnlineActivity(this);
                 router.disconnect(this);
+                router.Sem.signal();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
     }
+
 }
