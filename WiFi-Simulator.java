@@ -1,3 +1,8 @@
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
+import java.io.PrintStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -29,6 +34,15 @@ class Network {
                 devices.add(newDevice);
             }
 
+            // Get the current directory & redirect to the log file to write in
+            String outputFile = Path.of(Paths.get("").toAbsolutePath().toString()).resolve("logfile.txt").toString();
+
+            FileOutputStream fileOutputStream = new FileOutputStream(outputFile);
+            PrintStream printStream = new PrintStream(fileOutputStream);
+
+            // Change system output stream to be the log file
+            System.setOut(printStream);
+
             // Start a connection for each device in the list
             for (Device device : devices) {
                 device.start();
@@ -41,6 +55,9 @@ class Network {
         } catch (Exception e) {
             System.err.println("\n\tError: " + e.getMessage());
         }
+
+        // Reset the output stream back again to the standard output
+        System.setOut(new PrintStream(new FileOutputStream(FileDescriptor.out)));
         System.out.println("\tThanks for using our Wi-Fi Router Simulator!");
         scanner.close(); // Close the scanner after finishing the program
     }
@@ -91,12 +108,6 @@ class Router {
     public Semaphore semaphore;
 
     // Constructors
-    public Router() {
-        maxConnections = 0;
-        semaphore = new Semaphore(0);
-        devices = new ArrayList<>();
-    }
-
     public Router(int maxConns) {
         maxConnections = maxConns;
         semaphore = new Semaphore(maxConnections);
