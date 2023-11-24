@@ -4,80 +4,63 @@ import java.util.Scanner;
 
 // Network class to manage our WiFi network
 class Network {
-    // Store the list of devices on the network
-    private List<Device> devices = new ArrayList<>();
-    private Scanner scanner = new Scanner(System.in);
-
-    // Add a new device to the list of devices
-    public void addDevice() {
-        // Take the input from the user as (device name) (device type)
-        String input = scanner.nextLine();
-        // Split the input into two strings according to the space
-        String[] parts = input.split(" ", 2);
-        // Create the device object with the desired name & type
-        Device newDevice = new Device(parts[0], parts[1]);
-        // Add the device to the list of devices wishing to connect
-        devices.add(newDevice);
-    }
-
-    // Print the list of devices on the network
-    public void printDevices() {
-        for (Device device : devices) {
-            System.out.println(device.getName() + " (" + device.getType() + ")");
-        }
-    }
-
-    // Main method to start the program
     public static void main(String[] args) {
-        Network net = new Network();
-        Scanner sc = net.scanner;
+        // Store the list of devices on the network
+        Scanner scanner = new Scanner(System.in);
+        int maxConnections, nDevices;
+        ArrayList<Device> devices = new ArrayList<>();
         System.out.println("\tWelcome to the WiFi Router Simulator!");
         try {
-            System.out.print("What is the MAX number of Wi-Fi connections? ");
-            int maxConnections = sc.nextInt();
-            System.out.print("What is the total number of Client devices want to connect? ");
-            int totalDevices = sc.nextInt();
-            // Router router = new Router(maxConnections, totalDevices);
-            sc.nextLine(); // Clean the scanner buffer
+            System.out.print("What is the number of WI-FI connections? ");
+            maxConnections = scanner.nextInt();
+
+            // Create a router object with the max number of connections
+            Router router = new Router(maxConnections);
+
+            System.out.print("What is the number of devices Clients want to connect? ");
+            nDevices = scanner.nextInt();
+
             System.out.println("\n\tEnter device NAME followed by its TYPE separated by a space!");
-            // Get devices data from the user one by one
-            while (totalDevices > 0) {
-                net.addDevice();
-                totalDevices--;
+            // Get devices name & type from the user
+            for (int i = 0; i < nDevices; i++) {
+                // Take the input from the user as (device name) (device type)
+                Device newDevice = new Device(scanner.next(), scanner.next(), router);
+                // Add the device to the list of devices
+                devices.add(newDevice);
             }
-            System.out.println("\tDevices Added Successfully");
-            net.printDevices();
-            System.out.println("\tThanks for using our WiFi Router Simulator!");
+
+            // Start a connection for each device in the list
+            for (Device device : devices) {
+                device.start();
+            }
+
+            // Join threads until each thread completes its work
+            for (Device device : devices) {
+                device.join();
+            }
         } catch (Exception e) {
             System.err.println("\n\tError: " + e.getMessage());
         }
-        sc.close();
+        System.out.println("\tThanks for using our Wi-Fi Router Simulator!");
+        scanner.close(); // Close the scanner after finishing the program
     }
-}
-
-// Semaphore class to manage the synchronization
-class Semaphore {
-    // To be implemented
 }
 
 // Device class to store device data & methods
-class Device {
+class Device extends Thread {
     private String name;
     private String type;
+    private final Router router;
 
     // Constructors
-    public Device() {
-        name = "";
-        type = "";
-    }
-
-    public Device(String newName, String newType) {
+    public Device(String newName, String newType, Router newRouter) {
         name = newName;
         type = newType;
+        router = newRouter;
     }
 
     // Getters
-    public String getName() {
+    public String getDeviceName() {
         return name;
     }
 
@@ -85,44 +68,100 @@ class Device {
         return type;
     }
 
-    // Connect method to conncet device to the network
-    public void connect() {
-        System.out.println("\n\tDevice  is now connected!");
-    }
-
-    // Dummy function to emphasize the online activity done by the connected device
-    public void performActivity() {
-        System.out.println("\n\tClient is performing online activity!");
-    }
-
-    // Disconnect from the network
-    public void disconnect() {
-        System.out.println("\n\tClient is now disconnected!");
+    // Override the run method in the Thread class to do specific functions
+    // Related to our purposes and our program domain
+    @Override
+    public void run() {
+        try {
+            router.getSemaphore().wait(this);
+            router.connect(this);
+            router.performOnlineActivity(this);
+            router.disconnect(this);
+            router.getSemaphore().signal();
+        } catch (Exception e) {
+            System.err.println("ERROR: " + e.getMessage());
+        }
     }
 }
 
 // Router class to route devices through the network
 class Router {
     private int maxConnections;
-    private int nDevices;
+    private List<Device> devices;
+    public Semaphore semaphore;
 
     // Constructors
     public Router() {
         maxConnections = 0;
-        nDevices = 0;
+        semaphore = new Semaphore(0);
+        devices = new ArrayList<>();
     }
 
-    public Router(int maxConns, int nDevs) {
+    public Router(int maxConns) {
         maxConnections = maxConns;
-        nDevices = nDevs;
+        semaphore = new Semaphore(maxConnections);
+        devices = new ArrayList<>();
     }
 
-    // Getters
-    public int getConnsNumber() {
-        return maxConnections;
+    // Getter for semaphore object
+    public Semaphore getSemaphore() { return semaphore; }
+
+    // Connect method to conncet device to the network
+    public synchronized void connect(Device device) {
+        devices.add(device);
+        System.out.println("Connection " + ((Thread.currentThread().threadId() % maxConnections) + 1)
+                + ": " + device.getDeviceName() + " Occupied");
+        System.out.println("Connection " + ((Thread.currentThread().threadId() % maxConnections) + 1) + ": "
+                + device.getDeviceName() + " Logged in");
     }
 
-    public int getDevicesNumber() {
-        return nDevices;
+    // Dummy function to emphasize the online activity done by the connected device
+    public void performOnlineActivity(Device device) {
+        System.out.println("Connection " + ((Thread.currentThread().threadId() % maxConnections) + 1) + ": "
+                + device.getDeviceName() + " is performing online activity");
+        try {
+            Thread.sleep(1000);
+        } catch (Exception e) {
+            System.err.println("ERROR: " + e.getMessage());
+        }
+    }
+
+    // Disconnect / Logout from the network
+    public synchronized void disconnect(Device device) {
+        devices.remove(device);
+        System.out.println("Connection " + ((Thread.currentThread().threadId() % maxConnections) + 1) +
+                ": " + device.getDeviceName() + " Logged out");
+    }
+}
+
+// Semaphore class to manage the synchronization
+class Semaphore {
+    protected int value = 0;
+
+    public Semaphore(int initial) {
+        value = initial;
+    }
+
+    // Wait method to wait the device if there are
+    // No connections available on the network
+    public synchronized void wait(Device device) {
+        value--;
+        if (value < 0) {
+            System.out.println(device.getDeviceName() + " (" + device.getType() + ") arrived & waiting");
+            try {
+                wait();
+            } catch (Exception e) {
+                System.err.println("ERROR: " + e.getMessage());
+            }
+        } else
+            System.out.println(device.getDeviceName() + " (" + device.getType() + ") arrived");
+    }
+
+    // Signal method to notify the device if a place
+    // Became available on the network
+    public synchronized void signal() {
+        value++;
+        if (value <= 0)
+            notify();
     }
 }
